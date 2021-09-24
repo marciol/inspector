@@ -3,8 +3,8 @@ defmodule Inspector do
   This is a simple module that allows a more friendly debugging experience
   """
 
-  @doc """
-  Prints the currenty file, location, and bindings
+ @doc """
+  Prints the currenty file, location, stacktrace and bindings
 
   This macros allows an easy inspectable access to the
   content where it is called.
@@ -13,32 +13,23 @@ defmodule Inspector do
 
       require Inspector; Inspector.i
   """
-  defmacro i() do
-    quote do
-      Inspector.inspect(binding(), __ENV__)
-    end
+  def i do
+    i(binding())
   end
 
-  @doc false
-  def inspect(binding, %Macro.Env{} = env) do
-    %{file: file, line: line, module: module, function: function_arity} = env
-
-    file = "#{Path.relative_to_cwd(file)}:#{line}"
-
-    location =
-      case function_arity do
-        {function, arity} ->
-          Exception.format_mfa(module, function, arity)
-
-        _ ->
-          nil
-      end
+  defp i(binding) do
+    {:current_stacktrace, stacktrace} = Process.info(self(), :current_stacktrace)
+    [caller | stacktrace] = Enum.slice(stacktrace, 2..-1)
+    {module, function, arity, opts} = caller
+    location = Exception.format_mfa(module, function, arity)
+    file = "#{Path.relative_to_cwd(opts[:file])}:#{opts[:line]}"
 
     IO.inspect(
       %{
         file: file,
         location: location,
-        binding: binding
+        binding: binding,
+        stacktrace: stacktrace
       },
       label: :inspect
     )
